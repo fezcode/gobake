@@ -87,7 +87,20 @@ func runInit() {
 		return
 	}
 
-	// Default PIML content
+	// 1. Handle go.mod if it doesn't exist
+	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
+		dir, _ := os.Getwd()
+		modName := filepath.Base(dir)
+		fmt.Printf("go.mod not found. Running 'go mod init %s'...\n", modName)
+		cmd := exec.Command("go", "mod", "init", modName)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Warning: 'go mod init' failed: %v\n", err)
+		}
+	}
+
+	// 2. Default PIML content
 	pimlContent := `(name) my-awesome-project
 (version) 0.1.0
 (description) A new project built with gobake
