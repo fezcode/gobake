@@ -38,10 +38,18 @@ type RecipeInfo struct {
 	Tools       []string
 }
 
-// ... (keep NewEngine and Task)
+func New() *Engine {
+	return NewEngine()
+}
 
-// InstallTools installs Go tools listed in recipe.piml.
-func (ctx *Context) InstallTools() error {
+func NewEngine() *Engine {
+	return &Engine{
+		Tasks: make(map[string]*Task),
+	}
+}
+
+// Task registers a new task.
+func (e *Engine) Task(name, description string, action func(ctx *Context) error) {
 	if ctx.Engine.Info == nil || len(ctx.Engine.Info.Tools) == 0 {
 		ctx.Log("No tools defined in recipe.piml")
 		return nil
