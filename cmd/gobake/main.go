@@ -4,12 +4,23 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func main() {
 	// Handle "init" command
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		runInit()
+		return
+	}
+
+	// Handle "bump" command
+	if len(os.Args) > 1 && os.Args[1] == "bump" {
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: gobake bump [patch|minor|major]")
+			return
+		}
+		runBump(os.Args[2])
 		return
 	}
 
@@ -76,7 +87,9 @@ func runInit() {
 (keywords)
     - cli
     - tool
-    - golang`
+    - golang
+(tools)
+    - github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
 
 	// Default Recipe.go content
 	recipeGoContent := `package main
@@ -97,11 +110,13 @@ func main() {
 
 	// --- Tasks ---
 
+	bake.Task("setup", "Installs required tools", func(ctx *gobake.Context) error {
+		return ctx.InstallTools()
+	})
+
 	bake.Task("build", "Compiles the application", func(ctx *gobake.Context) error {
 		ctx.Log("Building %s v%s...", bake.Info.Name, bake.Info.Version)
-		// Example: Build for the current OS
-		// return ctx.Run("go", "build", "-o", "bin/app", ".")
-		return nil
+		return ctx.BakeBinary("linux", "amd64", "bin/app-linux")
 	})
 
 	bake.Task("test", "Runs project tests", func(ctx *gobake.Context) error {
@@ -111,9 +126,6 @@ func main() {
 
 	bake.Task("clean", "Removes build artifacts", func(ctx *gobake.Context) error {
 		ctx.Log("Cleaning up...")
-		// Using shell command for cross-platform delete is tricky in raw shell,
-		// but since we are in Go, we can use os.RemoveAll!
-		// But ctx.Run uses shell.
 		return ctx.Run("go", "clean")
 	})
 
@@ -136,4 +148,67 @@ func main() {
 
 	fmt.Println("\nSuccess! initialized gobake project.")
 	fmt.Println("Run 'gobake build' to start.")
+}
+
+func runBump(part string) {
+	data, err := os.ReadFile("recipe.piml")
+	if err != nil {
+		fmt.Printf("Error reading recipe.piml: %v\n", err)
+		return
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, "(version)") {
+			currentVersion := strings.TrimSpace(strings.TrimPrefix(line, "(version)"))
+			newVersion, err := incrementVersion(currentVersion, part)
+			if err != nil {
+				fmt.Printf("Error incrementing version: %v\n", err)
+				return
+			}
+			lines[i] = fmt.Sprintf("(version) %s", newVersion)
+			fmt.Printf("Bumped version: %s -> %s\n", currentVersion, newVersion)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("Error: (version) tag not found in recipe.piml")
+		return
+	}
+
+	if err := os.WriteFile("recipe.piml", []byte(strings.Join(lines, "\n")), 0644); err != nil {
+		fmt.Printf("Error writing recipe.piml: %v\n", err)
+		return
+	}
+}
+
+func incrementVersion(version, part string) (string, error) {
+	var major, minor, patch int
+	_, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch)
+	if err != nil {
+		// Try 2-part version just in case
+		_, err = fmt.Sscanf(version, "%d.%d", &major, &minor)
+		if err != nil {
+			return "", fmt.Errorf("invalid version format (expected X.Y.Z): %s", version)
+		}
+	}
+
+	switch strings.ToLower(part) {
+	case "major":
+		major++
+		minor = 0
+		patch = 0
+	case "minor":
+		minor++
+		patch = 0
+	case "patch":
+		patch++
+	default:
+		return "", fmt.Errorf("invalid bump part: %s (use major, minor, or patch)", part)
+	}
+
+	return fmt.Sprintf("%d.%d.%d", major, minor, patch), nil
 }

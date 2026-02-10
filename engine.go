@@ -35,21 +35,43 @@ type RecipeInfo struct {
 	Repository  string
 	Homepage    string
 	Keywords    []string
+	Tools       []string
 }
 
-func NewEngine() *Engine {
-	return &Engine{
-		Tasks: make(map[string]*Task),
+// ... (keep NewEngine and Task)
+
+// InstallTools installs Go tools listed in recipe.piml.
+func (ctx *Context) InstallTools() error {
+	if ctx.Engine.Info == nil || len(ctx.Engine.Info.Tools) == 0 {
+		ctx.Log("No tools defined in recipe.piml")
+		return nil
 	}
+
+	for _, tool := range ctx.Engine.Info.Tools {
+		ctx.Log("Installing tool: %s", tool)
+		if err := ctx.Run("go", "install", tool); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// Task registers a new task.
-func (e *Engine) Task(name, description string, action func(ctx *Context) error) {
-	e.Tasks[name] = &Task{
-		Name:        name,
-		Description: description,
-		Action:      action,
-	}
+// BakeBinary cross-compiles a Go binary.
+func (ctx *Context) BakeBinary(osName, arch, output string, flags ...string) error {
+	ctx.Log("Baking binary for %s/%s -> %s", osName, arch, output)
+	
+	args := []string{"build"}
+	args = append(args, flags...)
+	args = append(args, "-o", output, ".")
+
+	cmd := exec.Command("go", args...)
+	cmd.Env = append(os.Environ(), 
+		"GOOS="+osName,
+		"GOARCH="+arch,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // Log prints a formatted message to stdout.
