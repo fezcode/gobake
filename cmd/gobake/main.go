@@ -35,6 +35,46 @@ func main() {
 		return
 	}
 
+	// Handle "add-tool" command
+	if len(os.Args) > 1 && os.Args[1] == "add-tool" {
+		if len(os.Args) < 2 {
+			fmt.Println("Usage: gobake add-tool <tool-package-url>")
+			return
+		}
+		runAddTool(os.Args[2])
+		return
+	}
+
+	// Handle "add-dep" command
+	if len(os.Args) > 1 && os.Args[1] == "add-dep" {
+		if len(os.Args) < 2 {
+			fmt.Println("Usage: gobake add-dep <package-url>")
+			return
+		}
+		runAddDep(os.Args[2])
+		return
+	}
+
+	// Handle "remove-tool" command
+	if len(os.Args) > 1 && os.Args[1] == "remove-tool" {
+		if len(os.Args) < 2 {
+			fmt.Println("Usage: gobake remove-tool <tool-package-url>")
+			return
+		}
+		runRemoveTool(os.Args[2])
+		return
+	}
+
+	// Handle "remove-dep" command
+	if len(os.Args) > 1 && os.Args[1] == "remove-dep" {
+		if len(os.Args) < 2 {
+			fmt.Println("Usage: gobake remove-dep <package-url>")
+			return
+		}
+		runRemoveDep(os.Args[2])
+		return
+	}
+
 	// Check for Recipe.go
 	if _, err := os.Stat("Recipe.go"); err == nil {
 		// Found Recipe.go, run it
@@ -345,4 +385,97 @@ func main() {
 	fmt.Printf("\nProject ready in directory: %s\n", dirName)
 	fmt.Printf("cd %s\n", dirName)
 	fmt.Println("gobake build")
+}
+
+func runAddDep(pkg string) {
+	fmt.Printf("Adding dependency: %s...\n", pkg)
+	cmd := exec.Command("go", "get", pkg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error adding dependency: %v\n", err)
+	}
+}
+
+func runAddTool(tool string) {
+	data, err := os.ReadFile("recipe.piml")
+	if err != nil {
+		fmt.Printf("Error reading recipe.piml: %v\n", err)
+		return
+	}
+
+	content := string(data)
+	if strings.Contains(content, "(tools)") {
+		// Append to existing tools section
+		lines := strings.Split(content, "\n")
+		found := false
+		for i, line := range lines {
+			if strings.TrimSpace(line) == "(tools)" {
+				// Insert the new tool after the (tools) line
+				// We need to handle the array syntax correctly
+				lines = append(lines[:i+1], append([]string{fmt.Sprintf("    > %s", tool)}, lines[i+1:]...)...)
+				found = true
+				break
+			}
+		}
+		
+		if found {
+			content = strings.Join(lines, "\n")
+		}
+	} else {
+		// Create new tools section
+		if !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		content += fmt.Sprintf("(tools)\n    > %s\n", tool)
+	}
+
+	if err := os.WriteFile("recipe.piml", []byte(content), 0644); err != nil {
+		fmt.Printf("Error updating recipe.piml: %v\n", err)
+		return
+	}
+	fmt.Printf("Added tool %s to recipe.piml\n", tool)
+}
+
+func runRemoveDep(pkg string) {
+	fmt.Printf("Removing dependency: %s...\n", pkg)
+	// 'go get package@none' removes it from go.mod
+	cmd := exec.Command("go", "get", pkg+"@none")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error removing dependency: %v\n", err)
+	}
+}
+
+func runRemoveTool(tool string) {
+	data, err := os.ReadFile("recipe.piml")
+	if err != nil {
+		fmt.Printf("Error reading recipe.piml: %v\n", err)
+		return
+	}
+
+	lines := strings.Split(string(data), "\n")
+	var newLines []string
+	removed := false
+
+	for _, line := range lines {
+		// If the line contains the tool name, skip it
+		if strings.Contains(line, tool) {
+			removed = true
+			continue
+		}
+		newLines = append(newLines, line)
+	}
+
+	if !removed {
+		fmt.Printf("Tool '%s' not found in recipe.piml\n", tool)
+		return
+	}
+
+	if err := os.WriteFile("recipe.piml", []byte(strings.Join(newLines, "\n")), 0644); err != nil {
+		fmt.Printf("Error updating recipe.piml: %v\n", err)
+		return
+	}
+	fmt.Printf("Removed tool %s from recipe.piml\n", tool)
 }
