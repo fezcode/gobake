@@ -156,7 +156,8 @@ func runInit() {
     > github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
 
 	// Default Recipe.go content
-	recipeGoContent := `package main
+	recipeGoContent := `//go:build ignore
+package main
 
 import (
 	"fmt"
@@ -337,7 +338,8 @@ func runTemplate(repoUrl string) {
 	if _, err := os.Stat(recipeGoPath); os.IsNotExist(err) {
 		fmt.Println("Recipe.go not found. Creating default...")
 
-		recipeGoContent := `package main
+		recipeGoContent := `//go:build ignore
+package main
 
 import (
 	"fmt"
@@ -418,7 +420,7 @@ func runAddTool(tool string) {
 				break
 			}
 		}
-		
+
 		if found {
 			content = strings.Join(lines, "\n")
 		}
