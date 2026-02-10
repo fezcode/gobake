@@ -66,18 +66,11 @@ func (ctx *Context) InstallTools() error {
 
 // Task registers a new task.
 func (e *Engine) Task(name, description string, action func(ctx *Context) error) {
-	if ctx.Engine.Info == nil || len(ctx.Engine.Info.Tools) == 0 {
-		ctx.Log("No tools defined in recipe.piml")
-		return nil
+	e.Tasks[name] = &Task{
+		Name:        name,
+		Description: description,
+		Action:      action,
 	}
-
-	for _, tool := range ctx.Engine.Info.Tools {
-		ctx.Log("Installing tool: %s", tool)
-		if err := ctx.Run("go", "install", tool); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // BakeBinary cross-compiles a Go binary.
