@@ -170,6 +170,15 @@ func main() {
 	}
 	fmt.Println("Created Recipe.go")
 
+	// 4. Run go mod tidy to resolve dependencies
+	fmt.Println("Running 'go mod tidy' to resolve dependencies...")
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Stdout = os.Stdout
+	tidyCmd.Stderr = os.Stderr
+	if err := tidyCmd.Run(); err != nil {
+		fmt.Printf("Warning: 'go mod tidy' failed: %v\n", err)
+	}
+
 	fmt.Println("\nSuccess! initialized gobake project.")
 	fmt.Println("Run 'gobake build' to start.")
 }
