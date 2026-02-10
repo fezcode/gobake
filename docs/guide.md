@@ -9,6 +9,26 @@ Instead of relying on fragile shell scripts or complex Makefiles, `gobake` uses:
 2.  **Context:** A helper object passed to every task, providing access to the shell, logging, and metadata.
 3.  **Recipe:** The `Recipe.go` file that ties it all together.
 
+## CLI Command Reference
+
+### Project Management
+
+*   **`gobake init`**: Initialize a new project in the current directory.
+*   **`gobake template <git-url>`**: Clone a repository and initialize it.
+
+### Dependency & Tool Management
+
+*   **`gobake add-tool <url>`**: Adds a tool to the `(tools)` list in `recipe.piml`.
+    *   Example: `gobake add-tool github.com/vektra/mockery/v2@latest`
+*   **`gobake remove-tool <url>`**: Removes a tool from `recipe.piml`.
+*   **`gobake add-dep <url>`**: Adds a library dependency to `go.mod` (wrapper for `go get`).
+    *   Example: `gobake add-dep github.com/gin-gonic/gin`
+*   **`gobake remove-dep <url>`**: Removes a library dependency.
+
+### Versioning
+
+*   **`gobake bump [patch|minor|major]`**: Increments the project version in `recipe.piml`.
+
 ## Metadata (`recipe.piml`)
 
 The `recipe.piml` file is the single source of truth for your project.

@@ -46,6 +46,10 @@ go install github.com/fezcode/gobake/cmd/gobake@latest
 *   `gobake init`: Scaffolds a new `Recipe.go` and `recipe.piml`.
 *   `gobake bump [patch|minor|major]`: Increments the version in `recipe.piml`.
 *   `gobake template <git-url>`: Clones a repo and initializes it with gobake.
+*   `gobake add-tool <url>`: Adds a dev tool to `recipe.piml`.
+*   `gobake remove-tool <url>`: Removes a dev tool from `recipe.piml`.
+*   `gobake add-dep <url>`: Adds a library dependency (`go get`).
+*   `gobake remove-dep <url>`: Removes a library dependency.
 *   `gobake <task>`: Runs a defined task (e.g., `build`, `test`, `deploy`).
 
 ### The `recipe.piml` File
