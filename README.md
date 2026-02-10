@@ -1,5 +1,7 @@
 # gobake
 
+![Banner](./banner.png)
+
 **gobake** is a Go-native build orchestrator. It replaces Makefiles and shell scripts with a single, type-safe `Recipe.go` file.
 
 Inspired by `nob.h`, `gobake` allows you to write your build logic in Go, which is then compiled and executed on the fly. It also features a `recipe.piml` file for managing project metadata and dependencies.
@@ -56,7 +58,7 @@ This file holds your project's metadata.
 (description) A cool Go application
 (license) MIT
 (tools)
-    - github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    > github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
 ### The `Recipe.go` File
