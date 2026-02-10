@@ -13,6 +13,18 @@ Instead of relying on fragile shell scripts or complex Makefiles, `gobake` uses:
 
 The `recipe.piml` file is the single source of truth for your project.
 
+### Example
+
+```piml
+(name) my-project
+(version) 1.2.3
+(authors)
+    > Alice <alice@example.com>
+    > Bob <bob@example.com>
+(tools)
+    > github.com/swaggo/swag/cmd/swag@latest
+```
+
 ### Fields
 
 *   `name`: The name of your project.
