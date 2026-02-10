@@ -34,7 +34,21 @@ The `recipe.piml` file is the single source of truth for your project.
 *   `license`: Project license (e.g., `MIT`, `Apache-2.0`).
 *   `repository`: Git repository URL.
 *   `keywords`: Search tags.
-*   `tools`: List of Go binaries required for development.
+*   `tools`: List of External CLI tools required for development (e.g., linters, generators).
+
+### Dependency Management vs. Tools
+
+It is important to distinguish between **Project Dependencies** and **Build Tools**.
+
+1.  **Project Dependencies (`go.mod`):**
+    *   Libraries your code imports (e.g., `gin`, `cobra`).
+    *   Managed by standard Go commands: `go get`, `go mod tidy`.
+    *   Do **not** list these in `recipe.piml`.
+
+2.  **Build Tools (`recipe.piml`):**
+    *   Executables used *during* the build process (e.g., `golangci-lint`, `stringer`, `swag`).
+    *   These are installed via `go install` into your system or path.
+    *   `gobake` automates installing these using `ctx.InstallTools()`.
 
 ### Accessing Metadata in Code
 
