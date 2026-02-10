@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -21,6 +22,16 @@ func main() {
 			return
 		}
 		runBump(os.Args[2])
+		return
+	}
+
+	// Handle "template" command
+	if len(os.Args) > 1 && os.Args[1] == "template" {
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: gobake template <git-repo-url>")
+			return
+		}
+		runTemplate(os.Args[2])
 		return
 	}
 
@@ -83,13 +94,13 @@ func runInit() {
 (license) MIT
 (repository) github.com/user/my-awesome-project
 (authors)
-    - Me <me@example.com>
+    > Me <me@example.com>
 (keywords)
-    - cli
-    - tool
-    - golang
+    > cli
+    > tool
+    > golang
 (tools)
-    - github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
+    > github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
 
 	// Default Recipe.go content
 	recipeGoContent := `package main
@@ -211,4 +222,105 @@ func incrementVersion(version, part string) (string, error) {
 	}
 
 	return fmt.Sprintf("%d.%d.%d", major, minor, patch), nil
+}
+
+func runTemplate(repoUrl string) {
+	// 1. Determine directory name from URL
+	// e.g. https://github.com/user/project.git -> project
+	base := filepath.Base(repoUrl)
+	dirName := strings.TrimSuffix(base, ".git")
+	if dirName == "" || dirName == "." || dirName == "/" {
+		dirName = "new-project"
+	}
+
+	// 2. Git Clone
+	fmt.Printf("Cloning %s into %s...\n", repoUrl, dirName)
+	cmd := exec.Command("git", "clone", repoUrl, dirName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error cloning repository: %v\n", err)
+		return
+	}
+
+	// 3. Check and create recipe.piml
+	pimlPath := filepath.Join(dirName, "recipe.piml")
+	if _, err := os.Stat(pimlPath); os.IsNotExist(err) {
+		fmt.Println("recipe.piml not found. Creating default...")
+
+		pimlContent := fmt.Sprintf(`(name) %s
+(version) 0.1.0
+(description) Project cloned from %s
+(license) MIT
+(repository) %s
+(authors)
+    > Author Name <author@example.com>
+(keywords)
+    > cloned
+    > gobake
+(tools)
+`, dirName, repoUrl, repoUrl) // Empty tools initially
+
+		if err := os.WriteFile(pimlPath, []byte(pimlContent), 0644); err != nil {
+			fmt.Printf("Error creating recipe.piml: %v\n", err)
+		} else {
+			fmt.Println("Created recipe.piml")
+		}
+	} else {
+		fmt.Println("recipe.piml already exists.")
+	}
+
+	// 4. Check and create Recipe.go
+	recipeGoPath := filepath.Join(dirName, "Recipe.go")
+	if _, err := os.Stat(recipeGoPath); os.IsNotExist(err) {
+		fmt.Println("Recipe.go not found. Creating default...")
+
+		recipeGoContent := `package main
+
+import (
+	"fmt"
+	"github.com/fezcode/gobake"
+)
+
+func main() {
+	bake := gobake.NewEngine()
+
+	// Load metadata
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
+		fmt.Println("Error loading recipe.piml:", err)
+		return
+	}
+
+	// --- Tasks ---
+
+	bake.Task("setup", "Installs required tools", func(ctx *gobake.Context) error {
+		return ctx.InstallTools()
+	})
+
+	bake.Task("build", "Compiles the application", func(ctx *gobake.Context) error {
+		ctx.Log("Building %s v%s...", bake.Info.Name, bake.Info.Version)
+		// Default build command - adjust as needed
+		return ctx.Run("go", "build", "-o", "bin/app", ".")
+	})
+
+	bake.Task("test", "Runs project tests", func(ctx *gobake.Context) error {
+		ctx.Log("Running tests...")
+		return ctx.Run("go", "test", "./...")
+	})
+
+	bake.Execute()
+}
+`
+		if err := os.WriteFile(recipeGoPath, []byte(recipeGoContent), 0644); err != nil {
+			fmt.Printf("Error creating Recipe.go: %v\n", err)
+		} else {
+			fmt.Println("Created Recipe.go")
+		}
+	} else {
+		fmt.Println("Recipe.go already exists.")
+	}
+
+	fmt.Printf("\nProject ready in directory: %s\n", dirName)
+	fmt.Printf("cd %s\n", dirName)
+	fmt.Println("gobake build")
 }
