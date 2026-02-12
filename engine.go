@@ -29,15 +29,15 @@ type Engine struct {
 
 // RecipeInfo holds metadata from recipe.piml.
 type RecipeInfo struct {
-	Name        string
-	Version     string
-	Description string
-	Authors     []string
-	License     string
-	Repository  string
-	Homepage    string
-	Keywords    []string
-	Tools       []string
+	Name        string   `piml:"name"`
+	Version     string   `piml:"version,omitempty"`
+	Description string   `piml:"description,omitempty"`
+	Authors     []string `piml:"authors,omitempty"`
+	License     string   `piml:"license,omitempty"`
+	Repository  string   `piml:"repository,omitempty"`
+	Homepage    string   `piml:"homepage,omitempty"`
+	Keywords    []string `piml:"keywords,omitempty"`
+	Tools       []string `piml:"tools,omitempty"`
 }
 
 func New() *Engine {

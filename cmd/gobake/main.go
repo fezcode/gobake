@@ -233,38 +233,26 @@ func main() {
 }
 
 func runBump(part string) {
-	data, err := os.ReadFile("recipe.piml")
-	if err != nil {
+	bake := gobake.NewEngine()
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error reading recipe.piml: %v\n", err)
 		return
 	}
 
-	lines := strings.Split(string(data), "\n")
-	found := false
-	for i, line := range lines {
-		if strings.HasPrefix(line, "(version)") {
-			currentVersion := strings.TrimSpace(strings.TrimPrefix(line, "(version)"))
-			newVersion, err := incrementVersion(currentVersion, part)
-			if err != nil {
-				fmt.Printf("Error incrementing version: %v\n", err)
-				return
-			}
-			lines[i] = fmt.Sprintf("(version) %s", newVersion)
-			fmt.Printf("Bumped version: %s -> %s\n", currentVersion, newVersion)
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		fmt.Println("Error: (version) tag not found in recipe.piml")
+	currentVersion := bake.Info.Version
+	newVersion, err := incrementVersion(currentVersion, part)
+	if err != nil {
+		fmt.Printf("Error incrementing version: %v\n", err)
 		return
 	}
 
-	if err := os.WriteFile("recipe.piml", []byte(strings.Join(lines, "\n")), 0644); err != nil {
+	bake.Info.Version = newVersion
+	if err := bake.SaveRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error writing recipe.piml: %v\n", err)
 		return
 	}
+
+	fmt.Printf("Bumped version: %s -> %s\n", currentVersion, newVersion)
 }
 
 func incrementVersion(version, part string) (string, error) {
@@ -408,39 +396,23 @@ func runAddDep(pkg string) {
 }
 
 func runAddTool(tool string) {
-	data, err := os.ReadFile("recipe.piml")
-	if err != nil {
+	bake := gobake.NewEngine()
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error reading recipe.piml: %v\n", err)
 		return
 	}
 
-	content := string(data)
-	if strings.Contains(content, "(tools)") {
-		// Append to existing tools section
-		lines := strings.Split(content, "\n")
-		found := false
-		for i, line := range lines {
-			if strings.TrimSpace(line) == "(tools)" {
-				// Insert the new tool after the (tools) line
-				// We need to handle the array syntax correctly
-				lines = append(lines[:i+1], append([]string{fmt.Sprintf("    > %s", tool)}, lines[i+1:]...)...)
-				found = true
-				break
-			}
+	// Check if already exists
+	for _, t := range bake.Info.Tools {
+		if t == tool {
+			fmt.Printf("Tool %s already exists in recipe.piml\n", tool)
+			return
 		}
-
-		if found {
-			content = strings.Join(lines, "\n")
-		}
-	} else {
-		// Create new tools section
-		if !strings.HasSuffix(content, "\n") {
-			content += "\n"
-		}
-		content += fmt.Sprintf("(tools)\n    > %s\n", tool)
 	}
 
-	if err := os.WriteFile("recipe.piml", []byte(content), 0644); err != nil {
+	bake.Info.Tools = append(bake.Info.Tools, tool)
+
+	if err := bake.SaveRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error updating recipe.piml: %v\n", err)
 		return
 	}
@@ -459,31 +431,30 @@ func runRemoveDep(pkg string) {
 }
 
 func runRemoveTool(tool string) {
-	data, err := os.ReadFile("recipe.piml")
-	if err != nil {
+	bake := gobake.NewEngine()
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error reading recipe.piml: %v\n", err)
 		return
 	}
 
-	lines := strings.Split(string(data), "\n")
-	var newLines []string
-	removed := false
-
-	for _, line := range lines {
-		// If the line contains the tool name, skip it
-		if strings.Contains(line, tool) {
-			removed = true
+	var newTools []string
+	found := false
+	for _, t := range bake.Info.Tools {
+		if t == tool {
+			found = true
 			continue
 		}
-		newLines = append(newLines, line)
+		newTools = append(newTools, t)
 	}
 
-	if !removed {
+	if !found {
 		fmt.Printf("Tool '%s' not found in recipe.piml\n", tool)
 		return
 	}
 
-	if err := os.WriteFile("recipe.piml", []byte(strings.Join(newLines, "\n")), 0644); err != nil {
+	bake.Info.Tools = newTools
+
+	if err := bake.SaveRecipeInfo("recipe.piml"); err != nil {
 		fmt.Printf("Error updating recipe.piml: %v\n", err)
 		return
 	}

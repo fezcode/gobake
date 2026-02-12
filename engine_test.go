@@ -63,3 +63,37 @@ func TestLoadRecipeInfo(t *testing.T) {
 		t.Errorf("Tools not loaded correctly: %v", e.Info.Tools)
 	}
 }
+
+func TestSaveRecipeInfo(t *testing.T) {
+	e := NewEngine()
+	e.Info = &RecipeInfo{
+		Name:    "save-test",
+		Version: "1.0.0",
+		Tools:   []string{"github.com/a/b@latest"},
+	}
+
+	tmpFile := "test_save_recipe.piml"
+	defer os.Remove(tmpFile)
+
+	err := e.SaveRecipeInfo(tmpFile)
+	if err != nil {
+		t.Fatalf("SaveRecipeInfo failed: %v", err)
+	}
+
+	// Load it back to verify
+	e2 := NewEngine()
+	err = e2.LoadRecipeInfo(tmpFile)
+	if err != nil {
+		t.Fatalf("LoadRecipeInfo failed to read saved file: %v", err)
+	}
+
+	if e2.Info.Name != e.Info.Name {
+		t.Errorf("Expected name %s, got %s", e.Info.Name, e2.Info.Name)
+	}
+	if e2.Info.Version != e.Info.Version {
+		t.Errorf("Expected version %s, got %s", e.Info.Version, e2.Info.Version)
+	}
+	if len(e2.Info.Tools) != 1 || e2.Info.Tools[0] != e.Info.Tools[0] {
+		t.Errorf("Expected tools %v, got %v", e.Info.Tools, e2.Info.Tools)
+	}
+}
