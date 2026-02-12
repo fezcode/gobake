@@ -2,6 +2,7 @@ package gobake
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -20,6 +21,7 @@ type Task struct {
 type Context struct {
 	Engine *Engine
 	Args   []string
+	Env    []string
 }
 
 // Engine manages tasks and execution.
@@ -97,6 +99,7 @@ func (ctx *Context) BakeBinary(osName, arch, output string, flags ...string) err
 		"GOOS="+osName,
 		"GOARCH="+arch,
 	)
+	cmd.Env = append(cmd.Env, ctx.Env...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -107,9 +110,46 @@ func (ctx *Context) Log(format string, a ...interface{}) {
 	fmt.Printf("[gobake] "+format+"\n", a...)
 }
 
+// Mkdir creates a directory and any necessary parents.
+func (ctx *Context) Mkdir(path string) error {
+	ctx.Log("Creating directory: %s", path)
+	return os.MkdirAll(path, 0755)
+}
+
+// Remove removes a file or directory.
+func (ctx *Context) Remove(path string) error {
+	ctx.Log("Removing: %s", path)
+	return os.RemoveAll(path)
+}
+
+// Copy copies a file from src to dst.
+func (ctx *Context) Copy(src, dst string) error {
+	ctx.Log("Copying %s -> %s", src, dst)
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	return err
+}
+
+// SetEnv sets an environment variable for the current task context.
+func (ctx *Context) SetEnv(key, value string) {
+	ctx.Env = append(ctx.Env, fmt.Sprintf("%s=%s", key, value))
+}
+
 // Run executes a shell command and waits for it to finish.
 func (ctx *Context) Run(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), ctx.Env...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

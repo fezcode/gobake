@@ -152,3 +152,73 @@ func TestCircularDependency(t *testing.T) {
 		t.Errorf("Unexpected error message: %v", err)
 	}
 }
+
+func TestContextHelpers(t *testing.T) {
+	ctx := &Context{Engine: NewEngine()}
+	tmpDir := "test_helpers_dir"
+	defer os.RemoveAll(tmpDir)
+
+	// Test Mkdir
+	if err := ctx.Mkdir(tmpDir); err != nil {
+		t.Fatalf("Mkdir failed: %v", err)
+	}
+	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+		t.Fatal("Directory was not created")
+	}
+
+	// Test Copy
+	srcFile := "test_src.txt"
+	dstFile := "test_dst.txt"
+	content := "hello world"
+	if err := os.WriteFile(srcFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create src file: %v", err)
+	}
+	defer os.Remove(srcFile)
+	defer os.Remove(dstFile)
+
+	if err := ctx.Copy(srcFile, dstFile); err != nil {
+		t.Fatalf("Copy failed: %v", err)
+	}
+	gotContent, err := os.ReadFile(dstFile)
+	if err != nil {
+		t.Fatalf("Failed to read dst file: %v", err)
+	}
+	if string(gotContent) != content {
+		t.Errorf("Expected content %s, got %s", content, string(gotContent))
+	}
+
+	// Test Remove
+	if err := ctx.Remove(srcFile); err != nil {
+		t.Fatalf("Remove failed: %v", err)
+	}
+	if _, err := os.Stat(srcFile); !os.IsNotExist(err) {
+		t.Fatal("File was not removed")
+	}
+}
+
+func TestContextSetEnv(t *testing.T) {
+	ctx := &Context{Engine: NewEngine()}
+	key := "GOBAKE_TEST_VAR"
+	val := "scoped-value"
+
+	ctx.SetEnv(key, val)
+
+	// Check that it's NOT in the global environment
+	if os.Getenv(key) == val {
+		t.Errorf("Env var %s should not be set globally", key)
+	}
+
+	// We can't easily test if it's passed to a sub-process without running one,
+	// but we can verify it's in ctx.Env
+	found := false
+	expected := key + "=" + val
+	for _, e := range ctx.Env {
+		if e == expected {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected to find %s in ctx.Env", expected)
+	}
+}
