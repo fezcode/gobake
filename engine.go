@@ -13,6 +13,7 @@ type Task struct {
 	Name        string
 	Description string
 	Action      func(ctx *Context) error
+	DependsOn   []string
 }
 
 // Context provides utilities for tasks.
@@ -23,8 +24,9 @@ type Context struct {
 
 // Engine manages tasks and execution.
 type Engine struct {
-	Tasks map[string]*Task
-	Info  *RecipeInfo
+	Tasks         map[string]*Task
+	Info          *RecipeInfo
+	executedTasks map[string]bool
 }
 
 // RecipeInfo holds metadata from recipe.piml.
@@ -46,7 +48,8 @@ func New() *Engine {
 
 func NewEngine() *Engine {
 	return &Engine{
-		Tasks: make(map[string]*Task),
+		Tasks:         make(map[string]*Task),
+		executedTasks: make(map[string]bool),
 	}
 }
 
@@ -68,10 +71,16 @@ func (ctx *Context) InstallTools() error {
 
 // Task registers a new task.
 func (e *Engine) Task(name, description string, action func(ctx *Context) error) {
+	e.TaskWithDeps(name, description, nil, action)
+}
+
+// TaskWithDeps registers a new task with dependencies.
+func (e *Engine) TaskWithDeps(name, description string, deps []string, action func(ctx *Context) error) {
 	e.Tasks[name] = &Task{
 		Name:        name,
 		Description: description,
 		Action:      action,
+		DependsOn:   deps,
 	}
 }
 
@@ -115,22 +124,49 @@ func (e *Engine) Execute() {
 	}
 
 	taskName := os.Args[1]
-	task, ok := e.Tasks[taskName]
-	if !ok {
-		fmt.Printf("Unknown task: %s\n", taskName)
-		e.PrintHelp()
-		os.Exit(1)
-	}
-
 	ctx := &Context{
 		Engine: e,
 		Args:   os.Args[2:],
 	}
 
-	if err := task.Action(ctx); err != nil {
-		fmt.Printf("Task '%s' failed: %v\n", taskName, err)
+	running := make(map[string]bool)
+	if err := e.runTask(taskName, ctx, running); err != nil {
+		fmt.Printf("Execution failed: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func (e *Engine) runTask(name string, ctx *Context, running map[string]bool) error {
+	if e.executedTasks[name] {
+		return nil
+	}
+
+	if running[name] {
+		return fmt.Errorf("circular dependency detected: %s", name)
+	}
+
+	task, ok := e.Tasks[name]
+	if !ok {
+		return fmt.Errorf("unknown task: %s", name)
+	}
+
+	running[name] = true
+	defer func() { running[name] = false }()
+
+	// Run dependencies first
+	for _, depName := range task.DependsOn {
+		if err := e.runTask(depName, ctx, running); err != nil {
+			return err
+		}
+	}
+
+	// Run the task itself
+	if err := task.Action(ctx); err != nil {
+		return fmt.Errorf("task '%s' failed: %w", name, err)
+	}
+
+	e.executedTasks[name] = true
+	return nil
 }
 
 func (e *Engine) PrintHelp() {

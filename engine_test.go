@@ -97,3 +97,58 @@ func TestSaveRecipeInfo(t *testing.T) {
 		t.Errorf("Expected tools %v, got %v", e.Info.Tools, e2.Info.Tools)
 	}
 }
+
+func TestTaskDependencies(t *testing.T) {
+	e := NewEngine()
+	var order []string
+
+	e.Task("a", "Task A", func(ctx *Context) error {
+		order = append(order, "a")
+		return nil
+	})
+
+	e.TaskWithDeps("b", "Task B", []string{"a"}, func(ctx *Context) error {
+		order = append(order, "b")
+		return nil
+	})
+
+	e.TaskWithDeps("c", "Task C", []string{"b", "a"}, func(ctx *Context) error {
+		order = append(order, "c")
+		return nil
+	})
+
+	// We can't use e.Execute() because it reads os.Args
+	// We call runTask directly for testing
+	ctx := &Context{Engine: e}
+	running := make(map[string]bool)
+	err := e.runTask("c", ctx, running)
+	if err != nil {
+		t.Fatalf("runTask failed: %v", err)
+	}
+
+	expected := []string{"a", "b", "c"}
+	if len(order) != len(expected) {
+		t.Fatalf("Expected order %v, got %v", expected, order)
+	}
+	for i, v := range expected {
+		if order[i] != v {
+			t.Errorf("At index %d: expected %s, got %s", i, v, order[i])
+		}
+	}
+}
+
+func TestCircularDependency(t *testing.T) {
+	e := NewEngine()
+	e.TaskWithDeps("a", "Task A", []string{"b"}, func(ctx *Context) error { return nil })
+	e.TaskWithDeps("b", "Task B", []string{"a"}, func(ctx *Context) error { return nil })
+
+	ctx := &Context{Engine: e}
+	running := make(map[string]bool)
+	err := e.runTask("a", ctx, running)
+	if err == nil {
+		t.Fatal("Expected error for circular dependency, got nil")
+	}
+	if err.Error() != "circular dependency detected: a" && err.Error() != "circular dependency detected: b" {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+}
