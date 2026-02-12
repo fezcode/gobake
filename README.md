@@ -11,6 +11,7 @@ Inspired by `nob.h`, `gobake` allows you to write your build logic in Go, which 
 *   **Go-Native:** Write your build scripts in Go. No new syntax to learn.
 *   **Zero Dependencies:** The build system is just a Go program.
 *   **Metadata Management:** Centralized project info (Version, Authors, Tools) in `recipe.piml`.
+*   **Task Dependencies:** Define ordered execution requirements for tasks.
 *   **Auto-Versioning:** Built-in semantic versioning bumping (`gobake bump patch`).
 *   **Cross-Compilation:** Simple helpers for baking binaries for different platforms.
 *   **Self-Bootstrapping:** Just run `gobake`. It handles the rest.
@@ -44,6 +45,7 @@ go install github.com/fezcode/gobake/cmd/gobake@latest
 ### Commands
 
 *   `gobake init`: Scaffolds a new `Recipe.go` and `recipe.piml`.
+*   `gobake version`: Displays the current version of gobake.
 *   `gobake bump [patch|minor|major]`: Increments the version in `recipe.piml`.
 *   `gobake template <git-url>`: Clones a repo and initializes it with gobake.
 *   `gobake add-tool <url>`: Adds a dev tool to `recipe.piml`.
@@ -83,6 +85,11 @@ func main() {
 	bake.Task("build", "Builds the binary", func(ctx *gobake.Context) error {
 		ctx.Log("Building v%s...", bake.Info.Version)
 		return ctx.BakeBinary("linux", "amd64", "bin/app")
+	})
+
+	bake.TaskWithDeps("deploy", "Deploy after build", []string{"build"}, func(ctx *gobake.Context) error {
+		ctx.Log("Deploying...")
+		return nil
 	})
 
 	bake.Execute()

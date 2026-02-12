@@ -14,6 +14,7 @@ Instead of relying on fragile shell scripts or complex Makefiles, `gobake` uses:
 ### Project Management
 
 *   **`gobake init`**: Initialize a new project in the current directory.
+*   **`gobake version`**: Show the current version of gobake.
 *   **`gobake template <git-url>`**: Clone a repository and initialize it.
 
 ### Dependency & Tool Management
@@ -83,6 +84,17 @@ fmt.Println("Version:", bake.Info.Version)
 
 Tasks are defined using `bake.Task(name, description, function)`.
 
+### Task Dependencies
+
+You can define tasks that depend on other tasks using `bake.TaskWithDeps`. Dependencies are executed sequentially before the main task.
+
+```go
+bake.Task("test", "Run tests", func(ctx *gobake.Context) error { ... })
+bake.TaskWithDeps("build", "Build app", []string{"test"}, func(ctx *gobake.Context) error { ... })
+```
+
+`gobake` automatically detects circular dependencies and ensures each task runs only once per execution.
+
 ### Context Methods
 
 The `ctx` object is powerful. Here are its key methods:
@@ -91,6 +103,10 @@ The `ctx` object is powerful. Here are its key methods:
 *   **`ctx.Log(format, args...)`**: Prints a formatted log message with the `[gobake]` prefix.
 *   **`ctx.InstallTools()`**: Iterates through the `tools` list in `recipe.piml` and runs `go install` for each.
 *   **`ctx.BakeBinary(os, arch, output, flags...)`**: A helper for cross-compilation. It sets `GOOS` and `GOARCH` automatically.
+*   **`ctx.Mkdir(path)`**: Creates a directory and all its parents.
+*   **`ctx.Remove(path)`**: Removes a file or directory recursively.
+*   **`ctx.Copy(src, dst)`**: Copies a file.
+*   **`ctx.SetEnv(key, value)`**: Sets an environment variable **only** for the current task and commands executed within it via `ctx.Run` or `ctx.BakeBinary`.
 
 ## Workflow Tips
 

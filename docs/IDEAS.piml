@@ -1,0 +1,8 @@
+(ideas)
+    > Parallel task execution: Implement ctx.Parallel(taskNames...) to run independent tasks concurrently using goroutines and wait groups.
+    > Watch mode: Add a 'gobake watch <task>' command to automatically re-run a task when project files change.
+    > Interactive Init: Make 'gobake init' interactive, prompting for project name, version, license, and initial tools.
+    > Task Namespaces: Support grouping tasks like 'db:migrate', 'db:rollback'.
+    > Remote Templates: Allow 'gobake init --template <alias>' using a pre-defined list of common templates (e.g., 'web', 'cli', 'api').
+    > Self-Update: Add a 'gobake update' command to easily update the gobake binary to the latest version.
+    > Plugin System: Allow extending gobake with custom PIML tags or Context helpers via Go plugins.
