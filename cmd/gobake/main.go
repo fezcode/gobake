@@ -17,6 +17,19 @@ func main() {
 		return
 	}
 
+	// Handle "help" command
+	if len(os.Args) > 1 && (os.Args[1] == "help" || os.Args[1] == "--help") {
+		printCliHelp()
+		if _, err := os.Stat("Recipe.go"); err == nil {
+			fmt.Println("\n--- Project Tasks ---")
+			cmd := exec.Command("go", "run", "Recipe.go")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Run()
+		}
+		return
+	}
+
 	// Handle "init" command
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		runInit()
@@ -459,4 +472,20 @@ func runRemoveTool(tool string) {
 		return
 	}
 	fmt.Printf("Removed tool %s from recipe.piml\n", tool)
+}
+
+func printCliHelp() {
+	fmt.Println("gobake - Go-native build orchestrator")
+	fmt.Printf("Version: %s\n", gobake.Version)
+	fmt.Println("\nUsage: gobake <command> [args]")
+	fmt.Println("\nCommands:")
+	fmt.Println("  init          Initialize a new project")
+	fmt.Println("  version       Show gobake version")
+	fmt.Println("  bump          Bump project version (patch|minor|major)")
+	fmt.Println("  template      Init from a git template")
+	fmt.Println("  add-tool      Add a tool dependency")
+	fmt.Println("  remove-tool   Remove a tool dependency")
+	fmt.Println("  add-dep       Add a library dependency")
+	fmt.Println("  remove-dep    Remove a library dependency")
+	fmt.Println("  help          Show this help")
 }

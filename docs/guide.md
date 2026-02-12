@@ -15,6 +15,7 @@ Instead of relying on fragile shell scripts or complex Makefiles, `gobake` uses:
 
 *   **`gobake init`**: Initialize a new project in the current directory.
 *   **`gobake version`**: Show the current version of gobake.
+*   **`gobake help`**: Show the list of available commands and project tasks.
 *   **`gobake template <git-url>`**: Clone a repository and initialize it.
 
 ### Dependency & Tool Management
@@ -95,6 +96,19 @@ bake.TaskWithDeps("build", "Build app", []string{"test"}, func(ctx *gobake.Conte
 
 `gobake` automatically detects circular dependencies and ensures each task runs only once per execution.
 
+### Reserved Task Names
+
+The following names are reserved for `gobake` CLI commands and cannot be used as task names:
+*   `init`
+*   `version`
+*   `help`
+*   `bump`
+*   `template`
+*   `add-tool`
+*   `remove-tool`
+*   `add-dep`
+*   `remove-dep`
+
 ### Context Methods
 
 The `ctx` object is powerful. Here are its key methods:
@@ -118,3 +132,10 @@ The `ctx` object is powerful. Here are its key methods:
     })
     ```
 *   **CI/CD:** Since `gobake` is just Go, it runs perfectly in GitHub Actions or GitLab CI. Just ensure Go is installed.
+*   **Injecting Version:** You can inject the version from `recipe.piml` into your binary using `-ldflags`.
+    ```go
+    bake.Task("build", "Build app", func(ctx *gobake.Context) error {
+        ldflags := fmt.Sprintf("-X main.Version=%s", bake.Info.Version)
+        return ctx.BakeBinary("linux", "amd64", "bin/app", "-ldflags", ldflags)
+    })
+    ```

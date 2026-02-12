@@ -7,7 +7,7 @@ import (
 	"os/exec"
 )
 
-const Version = "0.1.0"
+var Version = "dev"
 
 // Task represents a build action.
 type Task struct {
@@ -78,6 +78,22 @@ func (e *Engine) Task(name, description string, action func(ctx *Context) error)
 
 // TaskWithDeps registers a new task with dependencies.
 func (e *Engine) TaskWithDeps(name, description string, deps []string, action func(ctx *Context) error) {
+	reserved := map[string]bool{
+		"init":        true,
+		"version":     true,
+		"bump":        true,
+		"template":    true,
+		"add-tool":    true,
+		"remove-tool": true,
+		"add-dep":     true,
+		"remove-dep":  true,
+		"help":        true,
+	}
+	if reserved[name] {
+		fmt.Printf("Error: Task name '%s' is reserved by gobake CLI.\n", name)
+		os.Exit(1)
+	}
+
 	e.Tasks[name] = &Task{
 		Name:        name,
 		Description: description,
