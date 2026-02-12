@@ -34,5 +34,20 @@ func main() {
 		return ctx.Run("go", "install", "./cmd/gobake")
 	})
 
+	bake.Task("tag", "Tag the current version", func(ctx *gobake.Context) error {
+		tagName := "v" + bake.Info.Version
+		ctx.Log("Creating git tag: %s", tagName)
+		return ctx.Run("git", "tag", tagName)
+	})
+
+	bake.TaskWithDeps("release", "Tag and push to remote", []string{"tag"}, func(ctx *gobake.Context) error {
+		tagName := "v" + bake.Info.Version
+		ctx.Log("Pushing changes and tag %s...", tagName)
+		if err := ctx.Run("git", "push"); err != nil {
+			return err
+		}
+		return ctx.Run("git", "push", "origin", tagName)
+	})
+
 	bake.Execute()
 }
