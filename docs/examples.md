@@ -83,3 +83,45 @@ func main() {
     bake.Execute()
 }
 ```
+
+## 3. Injecting Version with ldflags
+
+This recipe automatically injects the version from `recipe.piml` into your binary's `main.Version` variable.
+
+**main.go:**
+```go
+package main
+
+import "fmt"
+
+var Version = "dev" // Default value
+
+func main() {
+    fmt.Println("Version:", Version)
+}
+```
+
+**Recipe.go:**
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/fezcode/gobake"
+)
+
+func main() {
+    bake := gobake.NewEngine()
+    bake.LoadRecipeInfo("recipe.piml")
+
+    bake.Task("build", "Build with version", func(ctx *gobake.Context) error {
+        // -X main.Version=1.2.3
+        ldflags := fmt.Sprintf("-X main.Version=%s", bake.Info.Version)
+        
+        ctx.Log("Building version %s...", bake.Info.Version)
+        return ctx.Run("go", "build", "-ldflags", ldflags, "-o", "bin/app")
+    })
+
+    bake.Execute()
+}
+```
