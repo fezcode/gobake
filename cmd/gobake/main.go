@@ -6,9 +6,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/fezcode/gobake"
 )
 
 func main() {
+	// Handle "version" command
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "-v") {
+		fmt.Printf("gobake version %s\n", gobake.Version)
+		return
+	}
+
 	// Handle "init" command
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		runInit()

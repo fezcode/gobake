@@ -6,6 +6,8 @@ import (
 	"os/exec"
 )
 
+const Version = "0.1.0"
+
 // Task represents a build action.
 type Task struct {
 	Name        string
