@@ -1,6 +1,6 @@
-//go:build ignore
 
-package bake_recipe
+
+package main
 
 import (
 	"fmt"

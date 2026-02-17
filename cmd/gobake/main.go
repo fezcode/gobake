@@ -20,13 +20,6 @@ func main() {
 	// Handle "help" command
 	if len(os.Args) > 1 && (os.Args[1] == "help" || os.Args[1] == "--help") {
 		printCliHelp()
-		if _, err := os.Stat("Recipe.go"); err == nil {
-			fmt.Println("\n--- Project Tasks ---")
-			cmd := exec.Command("go", "run", "Recipe.go")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Run()
-		}
 		return
 	}
 
@@ -98,14 +91,8 @@ func main() {
 
 	// Check for Recipe.go
 	if _, err := os.Stat("Recipe.go"); err == nil {
-		// Found Recipe.go, run it
-		// We pass all args to the Recipe.go
-		args := append([]string{"run", "Recipe.go"}, os.Args[1:]...)
-		cmd := exec.Command("go", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-		if err := cmd.Run(); err != nil {
+		if err := runRecipe(os.Args[1:]); err != nil {
+			fmt.Printf("%v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -116,19 +103,24 @@ func main() {
 		fmt.Println("Found recipe.piml but no Recipe.go.")
 		fmt.Println("Please create a Recipe.go file to define your build tasks.")
 		fmt.Println("\nExample Recipe.go:")
-		fmt.Println(`package main
+		fmt.Printf("%s\n", `//go:build ignore
+package bake_recipe
 
-import "github.com/fezcode/gobake"
+import (
+	"fmt"
+	"github.com/fezcode/gobake"
+)
 
-func main() {
-	bake := gobake.NewEngine()
-	bake.LoadRecipeInfo("recipe.piml")
+func Run(bake *gobake.Engine) error {
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
+		return fmt.Errorf("error loading recipe.piml: %v", err)
+	}
 	
 	bake.Task("build", "Build the project", func(ctx *gobake.Context) error {
 		return ctx.Run("go", "build", "-o", "bin/app")
 	})
 	
-	bake.Execute()
+	return nil
 }`)
 		return
 	}
@@ -136,6 +128,64 @@ func main() {
 	fmt.Println("gobake: No Recipe.go or recipe.piml found in the current directory.")
 	fmt.Println("Run 'gobake init' to create a new project configuration.")
 	fmt.Println("Visit https://github.com/fezcode/gobake for more information.")
+}
+
+func runRecipe(programArgs []string) error {
+	// 1. Read Recipe.go
+	content, err := os.ReadFile("Recipe.go")
+	if err != nil {
+		return fmt.Errorf("error reading Recipe.go: %v", err)
+	}
+
+	// Create hidden directory
+	tmpDir := ".gobake"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("error creating temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// 2. Prepare gobake_recipe_gen.go
+	// Replace 'package bake_recipe' with 'package main'
+	// Also remove '//go:build ignore' to ensure it's included in the run
+	sContent := string(content)
+	sContent = strings.Replace(sContent, "package bake_recipe", "package main", 1)
+	sContent = strings.Replace(sContent, "//go:build ignore", "", 1)
+	
+	recipeGenFile := filepath.Join(tmpDir, "gobake_recipe_gen.go")
+	if err := os.WriteFile(recipeGenFile, []byte(sContent), 0644); err != nil {
+		return fmt.Errorf("error creating temporary recipe file: %v", err)
+	}
+
+	// 3. Create gobake_runner_gen.go
+	runnerContent := `package main
+
+import (
+	"fmt"
+	"os"
+	"github.com/fezcode/gobake"
+)
+
+func main() {
+	bake := gobake.NewEngine()
+	if err := Run(bake); err != nil {
+		fmt.Fprintf(os.Stderr, "Recipe setup failed: %v\n", err)
+		os.Exit(1)
+	}
+	bake.Execute()
+}
+`
+	runnerGenFile := filepath.Join(tmpDir, "gobake_runner_gen.go")
+	if err := os.WriteFile(runnerGenFile, []byte(runnerContent), 0644); err != nil {
+		return fmt.Errorf("error creating runner file: %v", err)
+	}
+
+	// 4. Run go run .gobake/gobake_recipe_gen.go .gobake/gobake_runner_gen.go [args]
+	args := append([]string{"run", recipeGenFile, runnerGenFile}, programArgs...)
+	cmd := exec.Command("go", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
 }
 
 func runInit() {
@@ -178,20 +228,17 @@ func runInit() {
 
 	// Default Recipe.go content
 	recipeGoContent := `//go:build ignore
-package main
+package bake_recipe
 
 import (
 	"fmt"
 	"github.com/fezcode/gobake"
 )
 
-func main() {
-	bake := gobake.NewEngine()
-
+func Run(bake *gobake.Engine) error {
 	// Load metadata
 	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
-		fmt.Println("Error loading recipe.piml:", err)
-		return
+		return fmt.Errorf("error loading recipe.piml: %v", err)
 	}
 
 	// --- Tasks ---
@@ -214,9 +261,8 @@ func main() {
 		ctx.Log("Cleaning up...")
 		return ctx.Run("go", "clean")
 	})
-
-	// Execute the task passed in CLI
-	bake.Execute()
+	
+	return nil
 }
 `
 
@@ -348,20 +394,17 @@ func runTemplate(repoUrl string) {
 		fmt.Println("Recipe.go not found. Creating default...")
 
 		recipeGoContent := `//go:build ignore
-package main
+package bake_recipe
 
 import (
 	"fmt"
 	"github.com/fezcode/gobake"
 )
 
-func main() {
-	bake := gobake.NewEngine()
-
+func Run(bake *gobake.Engine) error {
 	// Load metadata
 	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
-		fmt.Println("Error loading recipe.piml:", err)
-		return
+		return fmt.Errorf("error loading recipe.piml: %v", err)
 	}
 
 	// --- Tasks ---
@@ -380,8 +423,8 @@ func main() {
 		ctx.Log("Running tests...")
 		return ctx.Run("go", "test", "./...")
 	})
-
-	bake.Execute()
+	
+	return nil
 }
 `
 		if err := os.WriteFile(recipeGoPath, []byte(recipeGoContent), 0644); err != nil {
@@ -488,4 +531,20 @@ func printCliHelp() {
 	fmt.Println("  add-dep       Add a library dependency")
 	fmt.Println("  remove-dep    Remove a library dependency")
 	fmt.Println("  help          Show this help")
+
+	if _, err := os.Stat("Recipe.go"); err == nil {
+		fmt.Println("\n--- Project Tasks ---")
+		// We run the recipe without arguments to trigger the default behavior (showing help/tasks if no task specified)
+		// But runRecipe expects args to pass to the binary.
+		// If we pass empty args, the runner's main() calls bake.Execute().
+		// gobake.Execute() checks os.Args. If len(os.Args) < 2, it prints help.
+		// The runner is: "go run gen_recipe.go gen_runner.go [args...]"
+		// So os.Args[0] is the binary, os.Args[1] is the first arg.
+		// We want to simulate "gobake" (no args) behavior for the runner.
+		// runRecipe appends passed args to the go run command.
+		// If we pass [], command is `go run ...`.
+		// Inside the runner, os.Args will be [binary_path].
+		// gobake.Execute() checks len(os.Args) < 2. So it will print help.
+		runRecipe([]string{})
+	}
 }
