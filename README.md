@@ -73,15 +73,18 @@ This file holds your project's metadata.
 This is where you define your build logic.
 
 ```go
-package main
+//go:build ignore
+package bake_recipe
 
 import (
+	"fmt"
 	"github.com/fezcode/gobake"
 )
 
-func main() {
-	bake := gobake.NewEngine()
-	bake.LoadRecipeInfo("recipe.piml")
+func Run(bake *gobake.Engine) error {
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
+		return fmt.Errorf("error loading recipe.piml: %v", err)
+	}
 	
 	bake.Task("build", "Builds the binary", func(ctx *gobake.Context) error {
 		ctx.Log("Building v%s...", bake.Info.Version)
@@ -92,8 +95,8 @@ func main() {
 		ctx.Log("Deploying...")
 		return nil
 	})
-
-	bake.Execute()
+	
+	return nil
 }
 ```
 

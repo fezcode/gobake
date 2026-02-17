@@ -1,20 +1,17 @@
 //go:build ignore
 
-package main
+package bake_recipe
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 
 	"github.com/fezcode/gobake"
 )
 
-func main() {
-	bake := gobake.NewEngine()
+func Run(bake *gobake.Engine) error {
 	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
-		fmt.Printf("Error loading recipe.piml: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("Error loading recipe.piml: %v", err)
 	}
 
 	bake.Task("test", "Run unit tests", func(ctx *gobake.Context) error {
@@ -49,5 +46,5 @@ func main() {
 		return ctx.Run("git", "push", "origin", tagName)
 	})
 
-	bake.Execute()
+	return nil
 }
