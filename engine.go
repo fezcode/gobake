@@ -5,9 +5,20 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime/debug"
 )
 
 var Version = "dev"
+
+func init() {
+	if Version == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				Version = info.Main.Version
+			}
+		}
+	}
+}
 
 // Task represents a build action.
 type Task struct {
