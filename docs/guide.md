@@ -13,7 +13,7 @@ Instead of relying on fragile shell scripts or complex Makefiles, `gobake` uses:
 
 ### Project Management
 
-*   **`gobake init`**: Initialize a new project in the current directory.
+*   **`gobake init`**: Initialize a new project in the current directory. This command scaffolds `recipe.piml` and `Recipe.go`, runs `go mod init` if no `go.mod` is found, runs `go mod tidy`, and adds the `github.com/fezcode/gobake` library to your dependencies.
 *   **`gobake version`**: Show the current version of gobake.
 *   **`gobake help`**: Show the list of available commands and project tasks.
 *   **`gobake template <git-url>`**: Clone a repository and initialize it.

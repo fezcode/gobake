@@ -44,7 +44,7 @@ go install github.com/fezcode/gobake/cmd/gobake@latest
 
 ### Commands
 
-*   `gobake init`: Scaffolds a new `Recipe.go` and `recipe.piml`.
+*   `gobake init`: Scaffolds a new `Recipe.go` and `recipe.piml`. It also initializes `go.mod` if missing, runs `go mod tidy`, and adds the `gobake` library to your dependencies.
 *   `gobake version`: Displays the current version of gobake.
 *   `gobake help`: Displays the list of commands and available tasks.
 *   `gobake bump [patch|minor|major]`: Increments the version in `recipe.piml`.
@@ -73,7 +73,7 @@ This file holds your project's metadata.
 This is where you define your build logic.
 
 ```go
-//go:build ignore
+//go:build gobake
 package bake_recipe
 
 import (

@@ -1,0 +1,37 @@
+//go:build gobake
+package bake_recipe
+
+import (
+	"fmt"
+	"github.com/fezcode/gobake"
+)
+
+func Run(bake *gobake.Engine) error {
+	// Load metadata
+	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
+		return fmt.Errorf("error loading recipe.piml: %v", err)
+	}
+
+	// --- Tasks ---
+
+	bake.Task("setup", "Installs required tools", func(ctx *gobake.Context) error {
+		return ctx.InstallTools()
+	})
+
+	bake.Task("build", "Compiles the application", func(ctx *gobake.Context) error {
+		ctx.Log("Building %s v%s...", bake.Info.Name, bake.Info.Version)
+		return ctx.BakeBinary("linux", "amd64", "bin/app-linux")
+	})
+
+	bake.Task("test", "Runs project tests", func(ctx *gobake.Context) error {
+		ctx.Log("Running tests...")
+		return ctx.Run("go", "test", "./...")
+	})
+
+	bake.Task("clean", "Removes build artifacts", func(ctx *gobake.Context) error {
+		ctx.Log("Cleaning up...")
+		return ctx.Run("go", "clean")
+	})
+	
+	return nil
+}

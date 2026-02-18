@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,14 @@ import (
 	"strings"
 
 	"github.com/fezcode/gobake"
+)
+
+//go:embed templates/*
+var templatesFS embed.FS
+
+var (
+	defaultRecipePiml, _ = templatesFS.ReadFile("templates/recipe.piml")
+	defaultRecipeGo, _   = templatesFS.ReadFile("templates/Recipe.go.tmpl")
 )
 
 func main() {
@@ -103,7 +112,7 @@ func main() {
 		fmt.Println("Found recipe.piml but no Recipe.go.")
 		fmt.Println("Please create a Recipe.go file to define your build tasks.")
 		fmt.Println("\nExample Recipe.go:")
-		fmt.Printf("%s\n", `//go:build ignore
+		fmt.Printf("%s\n", `//go:build gobake
 package bake_recipe
 
 import (
@@ -146,10 +155,11 @@ func runRecipe(programArgs []string) error {
 
 	// 2. Prepare gobake_recipe_gen.go
 	// Replace 'package bake_recipe' with 'package main'
-	// Also remove '//go:build ignore' to ensure it's included in the run
+	// Also remove '//go:build ignore' or '//go:build gobake' to ensure it's included in the run
 	sContent := string(content)
 	sContent = strings.Replace(sContent, "package bake_recipe", "package main", 1)
 	sContent = strings.Replace(sContent, "//go:build ignore", "", 1)
+	sContent = strings.Replace(sContent, "//go:build gobake", "", 1)
 	
 	recipeGenFile := filepath.Join(tmpDir, "gobake_recipe_gen.go")
 	if err := os.WriteFile(recipeGenFile, []byte(sContent), 0644); err != nil {
@@ -211,74 +221,29 @@ func runInit() {
 		}
 	}
 
-	// 2. Default PIML content
-	pimlContent := `(name) my-awesome-project
-(version) 0.1.0
-(description) A new project built with gobake
-(license) MIT
-(repository) github.com/user/my-awesome-project
-(authors)
-    > Me <me@example.com>
-(keywords)
-    > cli
-    > tool
-    > golang
-(tools)
-    > github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
-
-	// Default Recipe.go content
-	recipeGoContent := `//go:build ignore
-package bake_recipe
-
-import (
-	"fmt"
-	"github.com/fezcode/gobake"
-)
-
-func Run(bake *gobake.Engine) error {
-	// Load metadata
-	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
-		return fmt.Errorf("error loading recipe.piml: %v", err)
-	}
-
-	// --- Tasks ---
-
-	bake.Task("setup", "Installs required tools", func(ctx *gobake.Context) error {
-		return ctx.InstallTools()
-	})
-
-	bake.Task("build", "Compiles the application", func(ctx *gobake.Context) error {
-		ctx.Log("Building %s v%s...", bake.Info.Name, bake.Info.Version)
-		return ctx.BakeBinary("linux", "amd64", "bin/app-linux")
-	})
-
-	bake.Task("test", "Runs project tests", func(ctx *gobake.Context) error {
-		ctx.Log("Running tests...")
-		return ctx.Run("go", "test", "./...")
-	})
-
-	bake.Task("clean", "Removes build artifacts", func(ctx *gobake.Context) error {
-		ctx.Log("Cleaning up...")
-		return ctx.Run("go", "clean")
-	})
-	
-	return nil
-}
-`
-
-	if err := os.WriteFile("recipe.piml", []byte(pimlContent), 0644); err != nil {
+	// 2. Write embedded templates
+	if err := os.WriteFile("recipe.piml", defaultRecipePiml, 0644); err != nil {
 		fmt.Printf("Error creating recipe.piml: %v\n", err)
 		return
 	}
 	fmt.Println("Created recipe.piml")
 
-	if err := os.WriteFile("Recipe.go", []byte(recipeGoContent), 0644); err != nil {
+	if err := os.WriteFile("Recipe.go", defaultRecipeGo, 0644); err != nil {
 		fmt.Printf("Error creating Recipe.go: %v\n", err)
 		return
 	}
 	fmt.Println("Created Recipe.go")
 
-	// 4. Run go mod tidy to resolve dependencies
+	// 3. Get gobake library
+	fmt.Println("Getting gobake library...")
+	getCmd := exec.Command("go", "get", "github.com/fezcode/gobake")
+	getCmd.Stdout = os.Stdout
+	getCmd.Stderr = os.Stderr
+	if err := getCmd.Run(); err != nil {
+		fmt.Printf("Warning: 'go get github.com/fezcode/gobake' failed: %v\n", err)
+	}
+
+	// 4. Run go mod tidy to resolve and keep dependencies
 	fmt.Println("Running 'go mod tidy' to resolve dependencies...")
 	tidyCmd := exec.Command("go", "mod", "tidy")
 	tidyCmd.Stdout = os.Stdout
@@ -366,20 +331,7 @@ func runTemplate(repoUrl string) {
 	if _, err := os.Stat(pimlPath); os.IsNotExist(err) {
 		fmt.Println("recipe.piml not found. Creating default...")
 
-		pimlContent := fmt.Sprintf(`(name) %s
-(version) 0.1.0
-(description) Project cloned from %s
-(license) MIT
-(repository) %s
-(authors)
-    > Author Name <author@example.com>
-(keywords)
-    > cloned
-    > gobake
-(tools)
-`, dirName, repoUrl, repoUrl) // Empty tools initially
-
-		if err := os.WriteFile(pimlPath, []byte(pimlContent), 0644); err != nil {
+		if err := os.WriteFile(pimlPath, defaultRecipePiml, 0644); err != nil {
 			fmt.Printf("Error creating recipe.piml: %v\n", err)
 		} else {
 			fmt.Println("Created recipe.piml")
@@ -393,41 +345,7 @@ func runTemplate(repoUrl string) {
 	if _, err := os.Stat(recipeGoPath); os.IsNotExist(err) {
 		fmt.Println("Recipe.go not found. Creating default...")
 
-		recipeGoContent := `//go:build ignore
-package bake_recipe
-
-import (
-	"fmt"
-	"github.com/fezcode/gobake"
-)
-
-func Run(bake *gobake.Engine) error {
-	// Load metadata
-	if err := bake.LoadRecipeInfo("recipe.piml"); err != nil {
-		return fmt.Errorf("error loading recipe.piml: %v", err)
-	}
-
-	// --- Tasks ---
-
-	bake.Task("setup", "Installs required tools", func(ctx *gobake.Context) error {
-		return ctx.InstallTools()
-	})
-
-	bake.Task("build", "Compiles the application", func(ctx *gobake.Context) error {
-		ctx.Log("Building %s v%s...", bake.Info.Name, bake.Info.Version)
-		// Default build command - adjust as needed
-		return ctx.Run("go", "build", "-o", "bin/app", ".")
-	})
-
-	bake.Task("test", "Runs project tests", func(ctx *gobake.Context) error {
-		ctx.Log("Running tests...")
-		return ctx.Run("go", "test", "./...")
-	})
-	
-	return nil
-}
-`
-		if err := os.WriteFile(recipeGoPath, []byte(recipeGoContent), 0644); err != nil {
+		if err := os.WriteFile(recipeGoPath, defaultRecipeGo, 0644); err != nil {
 			fmt.Printf("Error creating Recipe.go: %v\n", err)
 		} else {
 			fmt.Println("Created Recipe.go")

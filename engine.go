@@ -8,7 +8,7 @@ import (
 	"runtime/debug"
 )
 
-var Version = "dev"
+var Version = "0.3.0"
 
 func init() {
 	if Version == "dev" {
