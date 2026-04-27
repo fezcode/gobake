@@ -132,7 +132,33 @@ bake.Task("coverage", "Run tests with coverage", func(ctx *gobake.Context) error
 })
 ```
 
-## 6. CI/CD Integration
+## 6. Capturing Command Output
+
+Use `RunOutput` when you need a command's stdout — for example, embedding the current git commit into a binary.
+
+```go
+bake.Task("build", "Build with git SHA", func(ctx *gobake.Context) error {
+    sha, err := ctx.RunOutput("git", "rev-parse", "--short", "HEAD")
+    if err != nil {
+        return err
+    }
+    ldflags := fmt.Sprintf("-X main.Version=%s -X main.Commit=%s",
+        bake.Info.Version, sha)
+    return ctx.Run("go", "build", "-ldflags", ldflags, "-o", "bin/app")
+})
+```
+
+## 7. Running Commands in Subdirectories
+
+`RunIn` (and `RunInOutput`) execute a command in a specific working directory without mutating global state — safe to call from concurrent tasks.
+
+```go
+bake.Task("vendor-build", "Build a vendored sub-project", func(ctx *gobake.Context) error {
+    return ctx.RunIn("./third_party/lib", "go", "build", "./...")
+})
+```
+
+## 8. CI/CD Integration
 
 Since `gobake` is just a Go binary, you can run it easily in CI environments.
 

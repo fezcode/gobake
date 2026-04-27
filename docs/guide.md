@@ -93,6 +93,13 @@ This process allows you to write "script-like" Go code that is fully compiled an
     *   `minor`: 1.0.1 -> 1.1.0
     *   `major`: 1.1.0 -> 2.0.0
 
+### Running Tasks
+*   **`gobake <task>`**: Runs a single defined task.
+*   **`gobake <task1> <task2> ...`**: Runs multiple tasks in the order given. Each leading argument that matches a registered task name is executed; the first non-task argument (and everything after) is passed to the last task as `ctx.Args`.
+    *   `gobake test build` → runs `test`, then `build`.
+    *   `gobake build foo.txt` → runs `build` with `ctx.Args = ["foo.txt"]`.
+    *   `gobake test build x y` → runs `test`, then `build` with `ctx.Args = ["x", "y"]`.
+
 ### General
-*   **`gobake help`**: Lists all available commands AND the tasks defined in your `Recipe.go`.
+*   **`gobake help`**: Lists all available commands AND the tasks defined in your `Recipe.go` (alphabetically sorted).
 *   **`gobake version`**: Shows the gobake CLI version.

@@ -15,6 +15,7 @@ Inspired by `nob.h`, `gobake` allows you to write your build logic in Go, which 
 *   **Auto-Versioning:** Built-in semantic versioning bumping (`gobake bump patch`).
 *   **Cross-Compilation:** Simple helpers for baking binaries for different platforms.
 *   **Self-Bootstrapping:** Just run `gobake`. It handles the rest.
+*   **Multi-Task Invocation:** Chain tasks on the CLI: `gobake test build deploy`.
 
 ## Installation
 
@@ -53,7 +54,7 @@ go install github.com/fezcode/gobake/cmd/gobake@latest
 *   `gobake remove-tool <url>`: Removes a dev tool from `recipe.piml`.
 *   `gobake add-dep <url>`: Adds a library dependency (`go get`).
 *   `gobake remove-dep <url>`: Removes a library dependency.
-*   `gobake <task>`: Runs a defined task (e.g., `build`, `test`, `deploy`).
+*   `gobake <task> [<task>...]`: Runs one or more defined tasks in order (e.g., `gobake test build`). Trailing non-task tokens are passed to the last task as `ctx.Args`.
 
 ### The `recipe.piml` File
 

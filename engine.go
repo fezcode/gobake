@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var Version = "0.3.0"
+var Version = "0.4.0"
 
 func init() {
 	if Version == "dev" {

@@ -64,6 +64,31 @@ Executes a shell command. It inherits stdout/stderr and environment variables.
 ctx.Run("go", "test", "./...")
 ```
 
+#### `func (ctx *Context) RunIn(dir, name string, args ...string) error`
+Like `Run`, but executes the command in the given working directory. An empty `dir` falls back to the current working directory.
+
+```go
+ctx.RunIn("./service", "go", "build", "./...")
+```
+
+#### `func (ctx *Context) RunOutput(name string, args ...string) (string, error)`
+Executes a command and returns its captured stdout (with trailing newlines trimmed). Stderr is still streamed to the terminal so failures stay visible.
+
+```go
+sha, err := ctx.RunOutput("git", "rev-parse", "HEAD")
+if err != nil {
+    return err
+}
+ctx.Log("commit: %s", sha)
+```
+
+#### `func (ctx *Context) RunInOutput(dir, name string, args ...string) (string, error)`
+`RunOutput` with an explicit working directory.
+
+```go
+branch, _ := ctx.RunInOutput("./vendor/lib", "git", "rev-parse", "--abbrev-ref", "HEAD")
+```
+
 #### `func (ctx *Context) BakeBinary(osName, arch, output string, flags ...string) error`
 A helper for cross-compiling Go binaries. Sets `GOOS` and `GOARCH` automatically.
 *   **osName**: Target OS (e.g., "linux", "windows").
