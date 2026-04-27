@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime/debug"
+	"sort"
+	"strings"
 )
 
 var Version = "0.3.0"
@@ -175,7 +177,14 @@ func (ctx *Context) SetEnv(key, value string) {
 
 // Run executes a shell command and waits for it to finish.
 func (ctx *Context) Run(name string, args ...string) error {
+	return ctx.RunIn("", name, args...)
+}
+
+// RunIn executes a shell command in the given working directory.
+// An empty dir uses the current working directory.
+func (ctx *Context) RunIn(dir, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), ctx.Env...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -183,23 +192,67 @@ func (ctx *Context) Run(name string, args ...string) error {
 	return cmd.Run()
 }
 
+// RunOutput executes a command and returns its captured stdout.
+// Stderr is still streamed to os.Stderr so failures stay visible.
+func (ctx *Context) RunOutput(name string, args ...string) (string, error) {
+	return ctx.RunInOutput("", name, args...)
+}
+
+// RunInOutput is RunOutput with an explicit working directory.
+func (ctx *Context) RunInOutput(dir, name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), ctx.Env...)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	return strings.TrimRight(string(out), "\r\n"), err
+}
+
 // Execute runs the engine based on command line arguments.
+//
+// Leading arguments that name registered tasks are all executed in order.
+// The first argument that is not a task name (and everything after it) is
+// passed through to the last task as ctx.Args. So:
+//
+//	gobake build           -> runs build
+//	gobake build test      -> runs build then test
+//	gobake build foo.txt   -> runs build with Args=["foo.txt"]
+//	gobake build test x y  -> runs build then test with Args=["x", "y"]
 func (e *Engine) Execute() {
 	if len(os.Args) < 2 {
 		e.PrintHelp()
 		return
 	}
 
-	taskName := os.Args[1]
+	args := os.Args[1:]
+	var taskNames []string
+	var trailingArgs []string
+	for i, a := range args {
+		if _, ok := e.Tasks[a]; ok {
+			taskNames = append(taskNames, a)
+			continue
+		}
+		trailingArgs = args[i:]
+		break
+	}
+
+	if len(taskNames) == 0 {
+		fmt.Printf("Unknown task: %s\n", args[0])
+		e.PrintHelp()
+		os.Exit(1)
+	}
+
 	ctx := &Context{
 		Engine: e,
-		Args:   os.Args[2:],
+		Args:   trailingArgs,
 	}
 
 	running := make(map[string]bool)
-	if err := e.runTask(taskName, ctx, running); err != nil {
-		fmt.Printf("Execution failed: %v\n", err)
-		os.Exit(1)
+	for _, name := range taskNames {
+		if err := e.runTask(name, ctx, running); err != nil {
+			fmt.Printf("Execution failed: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -237,9 +290,14 @@ func (e *Engine) runTask(name string, ctx *Context, running map[string]bool) err
 }
 
 func (e *Engine) PrintHelp() {
-	fmt.Println("Usage: gobake <task> [args]")
+	fmt.Println("Usage: gobake <task> [<task>...] [args]")
 	fmt.Println("\nAvailable tasks:")
-	for name, task := range e.Tasks {
-		fmt.Printf("  %-15s %s\n", name, task.Description)
+	names := make([]string, 0, len(e.Tasks))
+	for name := range e.Tasks {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		fmt.Printf("  %-15s %s\n", name, e.Tasks[name].Description)
 	}
 }

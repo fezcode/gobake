@@ -1,7 +1,12 @@
 package gobake
 
 import (
+	"bytes"
+	"io"
 	"os"
+	"runtime"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -193,6 +198,135 @@ func TestContextHelpers(t *testing.T) {
 	}
 	if _, err := os.Stat(srcFile); !os.IsNotExist(err) {
 		t.Fatal("File was not removed")
+	}
+}
+
+func TestPrintHelpSorted(t *testing.T) {
+	e := NewEngine()
+	e.Task("zebra", "z", func(ctx *Context) error { return nil })
+	e.Task("alpha", "a", func(ctx *Context) error { return nil })
+	e.Task("mango", "m", func(ctx *Context) error { return nil })
+
+	r, w, _ := os.Pipe()
+	old := os.Stdout
+	os.Stdout = w
+	e.PrintHelp()
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	out := buf.String()
+
+	var seen []string
+	for _, name := range []string{"alpha", "mango", "zebra"} {
+		if idx := strings.Index(out, name); idx >= 0 {
+			seen = append(seen, name)
+		}
+	}
+	expected := []string{"alpha", "mango", "zebra"}
+	if !sort.StringsAreSorted(seen) || len(seen) != len(expected) {
+		t.Errorf("PrintHelp output not sorted; got order %v in:\n%s", seen, out)
+	}
+	// Confirm absolute positions are ascending
+	posA := strings.Index(out, "alpha")
+	posM := strings.Index(out, "mango")
+	posZ := strings.Index(out, "zebra")
+	if !(posA < posM && posM < posZ) {
+		t.Errorf("expected alpha < mango < zebra, got positions %d, %d, %d", posA, posM, posZ)
+	}
+}
+
+func TestExecuteMultipleTasks(t *testing.T) {
+	e := NewEngine()
+	var order []string
+	e.Task("one", "1", func(ctx *Context) error { order = append(order, "one"); return nil })
+	e.Task("two", "2", func(ctx *Context) error { order = append(order, "two"); return nil })
+	e.Task("three", "3", func(ctx *Context) error { order = append(order, "three"); return nil })
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"gobake", "one", "two", "three"}
+
+	e.Execute()
+
+	expected := []string{"one", "two", "three"}
+	if len(order) != len(expected) {
+		t.Fatalf("expected %v, got %v", expected, order)
+	}
+	for i, v := range expected {
+		if order[i] != v {
+			t.Errorf("at %d: expected %s, got %s", i, v, order[i])
+		}
+	}
+}
+
+func TestExecuteMultiTaskWithTrailingArgs(t *testing.T) {
+	e := NewEngine()
+	var capturedArgs []string
+	e.Task("one", "1", func(ctx *Context) error { return nil })
+	e.Task("two", "2", func(ctx *Context) error {
+		capturedArgs = append([]string{}, ctx.Args...)
+		return nil
+	})
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"gobake", "one", "two", "extra1", "extra2"}
+
+	e.Execute()
+
+	if len(capturedArgs) != 2 || capturedArgs[0] != "extra1" || capturedArgs[1] != "extra2" {
+		t.Errorf("expected trailing args [extra1 extra2], got %v", capturedArgs)
+	}
+}
+
+func TestRunOutput(t *testing.T) {
+	ctx := &Context{Engine: NewEngine()}
+	var name string
+	var args []string
+	if runtime.GOOS == "windows" {
+		name = "cmd"
+		args = []string{"/c", "echo hello"}
+	} else {
+		name = "echo"
+		args = []string{"hello"}
+	}
+	out, err := ctx.RunOutput(name, args...)
+	if err != nil {
+		t.Fatalf("RunOutput failed: %v", err)
+	}
+	if !strings.Contains(out, "hello") {
+		t.Errorf("expected 'hello' in output, got %q", out)
+	}
+	if strings.HasSuffix(out, "\n") || strings.HasSuffix(out, "\r") {
+		t.Errorf("expected trailing newlines trimmed, got %q", out)
+	}
+}
+
+func TestRunIn(t *testing.T) {
+	tmpDir := t.TempDir()
+	marker := "marker.txt"
+	if err := os.WriteFile(tmpDir+string(os.PathSeparator)+marker, []byte("x"), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	ctx := &Context{Engine: NewEngine()}
+	var name string
+	var args []string
+	if runtime.GOOS == "windows" {
+		name = "cmd"
+		args = []string{"/c", "dir", "/b"}
+	} else {
+		name = "ls"
+		args = []string{}
+	}
+	out, err := ctx.RunInOutput(tmpDir, name, args...)
+	if err != nil {
+		t.Fatalf("RunInOutput failed: %v", err)
+	}
+	if !strings.Contains(out, marker) {
+		t.Errorf("expected listing of %s to contain %q, got %q", tmpDir, marker, out)
 	}
 }
 
