@@ -4,10 +4,10 @@
 (license) MIT
 (repository) github.com/user/my-awesome-project
 (authors)
-    > Me <me@example.com>
+  > Me <me@example.com>
 (keywords)
-    > cli
-    > tool
-    > golang
+  > cli
+  > tool
+  > golang
 (tools)
-    > github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+  > github.com/golangci/golangci-lint/cmd/golangci-lint@latest
