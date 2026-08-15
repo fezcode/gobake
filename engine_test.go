@@ -42,8 +42,8 @@ func TestLoadRecipeInfo(t *testing.T) {
 (version) 1.2.3
 (description) Test description
 (tools)
-    > tool1
-    > tool2`
+  > tool1
+  > tool2`
 	
 	tmpFile := "test_recipe.piml"
 	err := os.WriteFile(tmpFile, []byte(pimlContent), 0644)

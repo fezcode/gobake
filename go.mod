@@ -2,4 +2,4 @@ module github.com/fezcode/gobake
 
 go 1.25.3
 
-require github.com/fezcode/go-piml v1.2.1
+require github.com/fezcode/go-piml v1.3.0
